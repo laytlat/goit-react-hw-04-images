@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { ImageGalleryList } from './ImageGallery.styled';
 import { getDataFromAPI, loadMoreDataFromAPI } from 'utils/API';
@@ -7,87 +7,79 @@ import { LoaderSpinner } from 'components/Loader/Loader';
 import { LoadMoreBtn } from 'components/Button/Button';
 import { Modal } from 'components/Modal/Modal';
 
-export class ImageGallery extends Component {
-  state = {
-    arrayOfImages: [],
-    status: `idle`,
-    isModalVisible: false,
-    largeImg: '',
-    tagsForModal: '',
-  };
-  componentDidUpdate(prevProps, prevState) {
-    if (prevProps.nameToFetch !== this.props.nameToFetch) {
-      this.setState({ status: 'pending' });
+export function ImageGallery({ nameToFetch }) {
+  const [arrayOfImages, setArrayOfImages] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [largeImg, setLargeImg] = useState('');
+  const [tagsForModal, setTagsForModal] = useState('');
 
-      getDataFromAPI(this.props.nameToFetch).then(data => {
-        this.setState({ arrayOfImages: data.hits });
+  useEffect(() => {
+    if (nameToFetch) {
+      setStatus('pending');
+      getDataFromAPI(nameToFetch).then(data => {
+        setArrayOfImages(data.hits);
         if (data.hits.length > 0) {
-          this.setState({ status: 'resolved' });
+          setStatus('resolved');
           return;
         }
-        this.setState({ status: 'rejected' });
+        setStatus('rejected');
       });
     }
-  }
-  loadMoreData = () => {
+  }, [nameToFetch]);
+
+  const loadMoreData = () => {
     loadMoreDataFromAPI().then(data => {
-      this.setState(prevState => ({
-        arrayOfImages: [...prevState.arrayOfImages, ...data.hits],
-      }));
+      setArrayOfImages(prevArray => {
+        return [...prevArray, ...data.hits];
+      });
     });
   };
-  onImageClick = e => {
-    const imgToFind = this.state.arrayOfImages.find(
+  const onImageClick = e => {
+    const imgToFind = arrayOfImages.find(
       img => img.webformatURL === e.currentTarget.src
     );
-    this.setState({
-      largeImg: imgToFind.largeImageURL,
-      tagsForModal: imgToFind.tags,
-    });
-    this.setState({ isModalVisible: true });
+    setLargeImg(imgToFind.largeImageURL);
+    setTagsForModal(imgToFind.tags);
+    setIsModalVisible(true);
   };
-  modalClose = e => {
-    this.setState({ isModalVisible: false });
+  const modalClose = e => {
+    setIsModalVisible(false);
   };
 
-  render() {
-    const { arrayOfImages, status, isModalVisible, tagsForModal, largeImg } =
-      this.state;
+  if (status === 'pending') {
+    return <LoaderSpinner />;
+  }
+  if (status === 'rejected') {
+    return;
+  }
 
-    if (status === 'pending') {
-      return <LoaderSpinner />;
-    }
-    if (status === 'rejected') {
-      return;
-    }
-
-    if (status === 'resolved') {
-      return (
-        <>
-          <ImageGalleryList>
-            {arrayOfImages.length > 0 &&
-              arrayOfImages.map(img => {
-                return (
-                  <ImageGalleryItem
-                    onClick={this.onImageClick}
-                    tags={img.tags}
-                    webformatURL={img.webformatURL}
-                    key={img.id}
-                  />
-                );
-              })}
-          </ImageGalleryList>
-          <LoadMoreBtn loadMoreData={this.loadMoreData} />
-          {isModalVisible && (
-            <Modal
-              modalClose={this.modalClose}
-              largeImg={largeImg}
-              tags={tagsForModal}
-            />
-          )}
-        </>
-      );
-    }
+  if (status === 'resolved') {
+    return (
+      <>
+        <ImageGalleryList>
+          {arrayOfImages.length > 0 &&
+            arrayOfImages.map(img => {
+              return (
+                <ImageGalleryItem
+                  onClick={onImageClick}
+                  tags={img.tags}
+                  webformatURL={img.webformatURL}
+                  key={img.id}
+                />
+              );
+            })}
+        </ImageGalleryList>
+        <LoadMoreBtn loadMoreData={loadMoreData} />
+        {isModalVisible && (
+          <Modal
+            modalClose={modalClose}
+            largeImg={largeImg}
+            tags={tagsForModal}
+          />
+        )}
+      </>
+    );
   }
 }
 
